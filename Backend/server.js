@@ -63,26 +63,40 @@ registerSocketHandlers(io);
 
 // --- MongoDB Connection ---
 const MONGODB_URI = process.env.MONGODB_URI;
+const MONGO_RETRY_MS = 5000;
+let mongoConnected = false;
+let mongoConnectInFlight = false;
 
-if (!MONGODB_URI) {
-  console.error("ERROR: MONGODB_URI environment variable is not set.");
-  console.error("Please create a .env file based on .env.example");
-  process.exit(1);
-}
+const connectMongoWithRetry = async () => {
+  if (!MONGODB_URI) {
+    console.error("ERROR: MONGODB_URI environment variable is not set.");
+    console.error(
+      `Server is running, but database-dependent routes will fail until MONGODB_URI is configured.`,
+    );
+    return;
+  }
 
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => {
+  if (mongoConnected || mongoConnectInFlight) return;
+  mongoConnectInFlight = true;
+
+  try {
+    await mongoose.connect(MONGODB_URI);
+    mongoConnected = true;
     console.log("Connected to MongoDB");
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`CORS origins: ${CORS_ORIGINS.join(", ")}`);
-    });
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error("Failed to connect to MongoDB:", err.message);
-    process.exit(1);
-  });
+    console.error(`Retrying MongoDB connection in ${MONGO_RETRY_MS / 1000}s...`);
+    setTimeout(connectMongoWithRetry, MONGO_RETRY_MS);
+  } finally {
+    mongoConnectInFlight = false;
+  }
+};
+
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`CORS origins: ${CORS_ORIGINS.join(", ")}`);
+  connectMongoWithRetry();
+});
 
 // Graceful shutdown
 process.on("SIGTERM", () => {
