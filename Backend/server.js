@@ -1,4 +1,5 @@
 require("dotenv").config();
+console.log("realscribe-backend: booting...");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -91,6 +92,14 @@ const connectMongoWithRetry = async () => {
     mongoConnectInFlight = false;
   }
 };
+
+server.on("error", (err) => {
+  console.error("Server failed to listen:", err.message);
+  console.error(
+    "Check PORT in Render: remove any custom PORT unless it is a number, or clear an empty PORT override.",
+  );
+  process.exit(1);
+});
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
