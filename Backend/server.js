@@ -20,7 +20,35 @@ const app = express();
 const server = http.createServer(app);
 
 // --- Configuration ---
-const PORT = process.env.PORT || 3001;
+// Render sets PORT (default 10000). A blank PORT override in the dashboard makes
+// `process.env.PORT || 3001` listen on 3001 while the proxy still probes the real
+// port → "Port scan timeout reached, no open ports detected".
+function resolveListenPort() {
+  const onRender = process.env.RENDER === "true";
+  const raw = process.env.PORT;
+  const trimmed =
+    raw === undefined || raw === null ? "" : String(raw).trim();
+
+  if (trimmed === "") {
+    if (onRender) {
+      const fallback = 10000;
+      console.warn(
+        `PORT is unset or empty on Render; binding to ${fallback} (Render default). Remove any blank "PORT" entry under Environment.`,
+      );
+      return fallback;
+    }
+    return 3001;
+  }
+
+  const n = parseInt(trimmed, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 65535) {
+    console.error(`Invalid PORT value: ${JSON.stringify(raw)}`);
+    process.exit(1);
+  }
+  return n;
+}
+
+const PORT = resolveListenPort();
 const CORS_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((s) => s.trim());
