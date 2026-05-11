@@ -92,7 +92,7 @@ const connectMongoWithRetry = async () => {
   }
 };
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`CORS origins: ${CORS_ORIGINS.join(", ")}`);
   connectMongoWithRetry();
